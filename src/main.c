@@ -32,7 +32,9 @@ void Blit(SDL_Renderer *renderer, SDL_Texture *texture, int x, int y) {
 #define BOARD_SIZE 8
 
 #define SELECTION_SIZE 3
-#define SELECTION_PAD 100
+#define SELECTION_PAD 130
+
+#define MOUSE_DRAG_OFFSET 50
 
 typedef struct {
   int w;
@@ -156,9 +158,48 @@ void draw_shape(GameContext *ctx, Shape shape, int screen_x, int screen_y) {
   }
 
 void draw_shape_centered(GameContext *ctx, Shape shape, int screen_x, int screen_y) {
-  screen_x -=BLOCK_SIZE_PX * tetrominos[shape.tetromino].w / 2;
+  screen_x -= BLOCK_SIZE_PX * tetrominos[shape.tetromino].w / 2;
   screen_y -= BLOCK_SIZE_PX * tetrominos[shape.tetromino].h / 2;
   draw_shape(ctx, shape, screen_x, screen_y);
+  }
+
+bool centered_shape_is_hovered(Shape shape, int screen_x, int screen_y, int mouse_x, int mouse_y) {
+  screen_x -= BLOCK_SIZE_PX * tetrominos[shape.tetromino].w / 2;
+  screen_y -= BLOCK_SIZE_PX * tetrominos[shape.tetromino].h / 2;
+  
+  int px_width = BLOCK_SIZE_PX * tetrominos[shape.tetromino].w;
+  int px_height = BLOCK_SIZE_PX * tetrominos[shape.tetromino].h;
+  
+  if (mouse_x > screen_x && mouse_x < screen_x+px_width) {
+    if (mouse_y > screen_y && mouse_y < screen_y+px_height) {
+      return true;
+      }
+    }
+  return false;
+  }
+
+bool place_shape(GameContext *ctx, Shape shape, int block_x, int block_y) {
+  if (block_x >= BOARD_SIZE || block_y >= BOARD_SIZE) return false;
+  
+  Tetromino tetromino = tetrominos[shape.tetromino];
+  
+  for (int rx=0; rx<tetromino.w; rx++) {
+    for (int ry=0; ry<tetromino.h; ry++) {
+      if (tetromino.data[rx * tetromino.h + ry] != '1') continue;
+      
+      if (board_get_at(ctx->board, block_x+rx, block_y+ry)) return false;
+      }
+    }
+  
+  for (int rx=0; rx<tetromino.w; rx++) {
+    for (int ry=0; ry<tetromino.h; ry++) {
+      if (tetromino.data[rx * tetromino.h + ry] != '1') continue;
+      
+      board_set_at(ctx->board, block_x+rx, block_y+ry, shape.color);
+      }
+    }
+  
+  return true;
   }
 
 bool update_and_draw(GameContext *ctx) {
@@ -216,14 +257,32 @@ bool update_and_draw(GameContext *ctx) {
   
   // draw_shape(ctx, (Shape) {0, 1}, 400, 400);
   
-  Shape shape;
+  
   for (int i=0;i<SELECTION_SIZE; i++) {
-    shape = ctx->shape_selection[i];
+    const Shape shape = ctx->shape_selection[i];
     
     if (shape.is_dragging) {
+      if (!mouse_is_pressed) {
+        ctx->shape_selection[i].is_dragging = false;
+        
+        Tetromino tetromino = tetrominos[shape.tetromino];
+        
+        int shape_x = floor(((float) mouse_x - (float) ctx->board_x) / (float) BLOCK_SIZE_PX - tetromino.w/2);
+        int shape_y = floor(((float) (mouse_y - MOUSE_DRAG_OFFSET) - (float) ctx->board_y) / (float) BLOCK_SIZE_PX - tetromino.h/2);
+        
+        place_shape(ctx, shape, shape_x, shape_y);
+        }
       
+      draw_shape_centered(ctx, shape, mouse_x, mouse_y-MOUSE_DRAG_OFFSET);
       }
     else {
+      int shape_center_x = (ctx->screen_width/2-(SELECTION_PAD/2*SELECTION_SIZE)+SELECTION_PAD/2)+(i*SELECTION_PAD);
+      int shape_center_y = ctx->board_y + BOARD_SIZE*BLOCK_SIZE_PX + 100;
+      
+      if (mouse_just_pressed && centered_shape_is_hovered(shape, shape_center_x, shape_center_y, mouse_x, mouse_y)) {
+        ctx->shape_selection[i].is_dragging = true;
+        }
+      
       draw_shape_centered(ctx, shape, (ctx->screen_width/2-(SELECTION_PAD/2*SELECTION_SIZE)+SELECTION_PAD/2)+(i*SELECTION_PAD), ctx->board_y + BOARD_SIZE*BLOCK_SIZE_PX+100);
       }
     }
