@@ -42,6 +42,43 @@ void Blit(SDL_Renderer *renderer, SDL_Texture *texture, int x, int y) {
 #define BLOCK_SIZE_PX 32
 #define BOARD_SIZE 8
 
+#define SELECTION_SIZE 3
+
+/* Shapes */
+
+typedef struct {
+  unsigned int width;
+  unsigned int height;
+  unsigned int color;
+  char *data;
+  } Shape;
+
+const Shape shape_templates[] = {
+  (Shape) {
+    2, 2,
+    0,
+    "1111",
+    }
+  };
+
+const int NUM_TEMPLATES = sizeof(shape_templates) / sizeof(shape_templates[0]);
+
+Shape shape_from_template(unsigned int template_id, unsigned int color) {
+  Shape template = shape_templates[template_id];
+  return (Shape) {template.width, template.height, color, template.data};
+  }
+
+/* Colors */
+
+const SDL_Color colors[] = {
+  (SDL_Color) {0, 0, 0, 0}, /* unused */
+  (SDL_Color) {255, 0, 0, 255},
+  };
+
+const int NUM_COLORS = sizeof(colors) / sizeof(colors[0]);
+
+/* ... */
+
 typedef struct {
   SDL_Window *window;
   SDL_Renderer *renderer;
@@ -50,6 +87,8 @@ typedef struct {
   
   SDL_Texture *textures[NUM_TEXTURES];
   uint8_t board[BOARD_SIZE * BOARD_SIZE];
+  
+  Shape selection[SELECTION_SIZE];
   } GameContext;
 
 void init(GameContext *ctx) {
@@ -71,6 +110,11 @@ void init(GameContext *ctx) {
   
   /* Clear the board */
   memset(ctx->board, 0, sizeof(ctx->board[0]) * BOARD_SIZE * BOARD_SIZE);
+  
+  /* Generate selection*/
+  for (int i=0; i<SELECTION_SIZE; i++) {
+    ctx->selection[i] = shape_from_template(randint(0, NUM_TEMPLATES), randint(0, NUM_COLORS));
+    }
   }
 
 bool frame(GameContext *ctx) {
