@@ -58,7 +58,7 @@ const Shape shape_templates[] = {
     2, 2,
     0,
     "1111",
-    }
+    },
   };
 
 const int NUM_TEMPLATES = sizeof(shape_templates) / sizeof(shape_templates[0]);
@@ -73,6 +73,9 @@ Shape shape_from_template(unsigned int template_id, unsigned int color) {
 const SDL_Color colors[] = {
   (SDL_Color) {0, 0, 0, 0}, /* unused */
   (SDL_Color) {255, 0, 0, 255},
+  (SDL_Color) {255, 0, 255, 255},
+  (SDL_Color) {0, 0, 255, 255},
+  (SDL_Color) {0, 255, 0, 255},
   };
 
 const int NUM_COLORS = sizeof(colors) / sizeof(colors[0]);
@@ -92,6 +95,8 @@ typedef struct {
   } GameContext;
 
 void init(GameContext *ctx) {
+  srand(time(NULL));
+  
   ctx->window_size[WIDTH] = 720;
   ctx->window_size[HEIGHT] = 720;
   
@@ -112,8 +117,29 @@ void init(GameContext *ctx) {
   memset(ctx->board, 0, sizeof(ctx->board[0]) * BOARD_SIZE * BOARD_SIZE);
   
   /* Generate selection*/
-  for (int i=0; i<SELECTION_SIZE; i++) {
-    ctx->selection[i] = shape_from_template(randint(0, NUM_TEMPLATES), randint(0, NUM_COLORS));
+  for (int i=0; i<SELECTION_SIZE; ++i) {
+    ctx->selection[i] = shape_from_template(randint(0, NUM_TEMPLATES-1), randint(1, NUM_COLORS-1));
+    }
+  }
+
+void draw_block(GameContext *ctx, int screen_x, int screen_y, SDL_Color color) {
+  SDL_SetRenderDrawColor(ctx->renderer, color.r, color.g, color.b, 255);
+  SDL_RenderFillRect(ctx->renderer, &(SDL_Rect) {screen_x, screen_y, BLOCK_SIZE_PX, BLOCK_SIZE_PX});
+  
+  SDL_Texture *texture = ctx->textures[TEXTURE_BLOCK];
+  
+  SDL_SetTextureAlphaMod(texture, 128);
+  SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+  Blit(ctx->renderer, texture, screen_x, screen_y);
+  }
+
+void draw_shape(GameContext *ctx, Shape shape, int screen_x, int screen_y) {
+  for (int block_x=0; block_x<shape.width; ++block_x) {
+    for (int block_y=0; block_y<shape.height; ++block_y) {
+      if (shape.data[block_y * shape.height + block_x] != '1') continue;
+      
+      draw_block(ctx, block_x * BLOCK_SIZE_PX + screen_x, block_y * BLOCK_SIZE_PX + screen_y, colors[shape.color]);
+      }
     }
   }
 
@@ -124,7 +150,7 @@ bool frame(GameContext *ctx) {
     }
   
   int board_position[2] = {
-    ctx->window_size[WIDTH]  / 2 - (BLOCK_SIZE_PX * BOARD_SIZE) / 2,
+    ctx->window_size[WIDTH] / 2 - (BLOCK_SIZE_PX * BOARD_SIZE) / 2,
     100
     };
   
@@ -132,12 +158,28 @@ bool frame(GameContext *ctx) {
   SDL_RenderClear(ctx->renderer);
   
   int screen_x, screen_y, x, y;
-  for (int x=0; x<BOARD_SIZE; x++) {
-    for (int y=0; y<BOARD_SIZE; y++) {
+  for (int x=0; x<BOARD_SIZE; ++x) {
+    for (int y=0; y<BOARD_SIZE; ++y) {
       screen_x = BLOCK_SIZE_PX * x + board_position[X];
       screen_y = BLOCK_SIZE_PX * y + board_position[Y];
       
       Blit(ctx->renderer, ctx->textures[TEXTURE_BLOCK_EMPTY], screen_x, screen_y);
+      }
+    }
+  
+  /* Draw the selection */
+  {
+    const int padding = 100;
+    int center_x, screen_x;
+    Shape shape;
+    
+    for (int i=0; i<SELECTION_SIZE; ++i) {
+      shape = ctx->selection[i];
+      
+      center_x = (ctx->window_size[WIDTH] / 2) - (SELECTION_SIZE * padding / 2) + (i * padding) + padding / 2;
+      screen_x = center_x - shape.width * BLOCK_SIZE_PX / 2;
+      
+      draw_shape(ctx, shape, screen_x, board_position[Y] + BOARD_SIZE * BLOCK_SIZE_PX + 10);
       }
     }
   
