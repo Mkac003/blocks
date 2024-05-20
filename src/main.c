@@ -120,7 +120,7 @@ void generate_selection(GameContext *ctx);
 void init(GameContext *ctx) {
   srand(time(NULL));
   
-  ctx->window_size[WIDTH] = 720;
+  ctx->window_size[WIDTH] = 1280;
   ctx->window_size[HEIGHT] = 720;
   
   /* Create the window and SDL renderer */
@@ -143,6 +143,48 @@ void init(GameContext *ctx) {
   
   /* no shape is currently being dragged */
   ctx->dragging_shape = NOT_DRAGGING;
+  }
+
+int clear_solved(uint8_t *board) {
+  int score = 0;
+  bool is_full = false;
+  
+  /* X */
+  for (int row=0; row<BOARD_SIZE; row++) {
+    is_full = true;
+    
+    for (int x=0; x<BOARD_SIZE; x++) {
+      if (!board[row * BOARD_SIZE + x]) {
+        is_full = false;
+        break;
+        }
+      }
+    
+    if (is_full) {
+      score += BOARD_SIZE;
+      memset(board + row * BOARD_SIZE, 0, sizeof(uint8_t) * BOARD_SIZE);
+      }
+    }
+  
+  /* Y */
+  for (int column=0; column<BOARD_SIZE; column++) {
+    is_full = true;
+    
+    for (int y=0; y<BOARD_SIZE; y++) {
+      if (!board[y * BOARD_SIZE + column]) {
+        is_full = false;
+        break;
+        }
+      }
+    
+    if (is_full) {
+      score += BOARD_SIZE;
+      for (int y=0; y<BOARD_SIZE; y++)
+        board[y * BOARD_SIZE + column] = 0;
+      }
+    }
+  
+  return score;
   }
 
 void generate_selection(GameContext *ctx) {
@@ -273,7 +315,10 @@ bool frame(GameContext *ctx) {
       int index = block_y * BOARD_SIZE + block_x;
       
       if (index < BOARD_SIZE * BOARD_SIZE) {
-        if (place_shape(ctx->board, shape, block_x, block_y)) ctx->selection[ctx->dragging_shape].color = 0;
+        if (place_shape(ctx->board, shape, block_x, block_y)) {
+          clear_solved(ctx->board);
+          ctx->selection[ctx->dragging_shape].color = 0;
+          }
         }
       
       ctx->dragging_shape = NOT_DRAGGING;
