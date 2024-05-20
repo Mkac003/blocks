@@ -6,6 +6,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
+#include "shapes.h"
+
 /* ========== UTILS ========== */
 
 void handle_sdl_error() {
@@ -49,40 +51,6 @@ void Blit(SDL_Renderer *renderer, SDL_Texture *texture, int x, int y) {
 #define NOT_DRAGGING -1
 #define MOUSE_DRAG_PADDING 20
 
-/* Shapes */
-
-typedef struct {
-  unsigned int width;
-  unsigned int height;
-  unsigned int color;
-  char *data;
-  } Shape;
-
-const Shape shape_templates[] = {
-  (Shape) {
-    2, 2,
-    0,
-    "1111",
-    },
-  (Shape) {
-    3, 2,
-    0,
-    "111111",
-    },
-  (Shape) {
-    2, 3,
-    0,
-    "111111",
-    },
-  (Shape) {
-    3, 3,
-    0,
-    "111111111",
-    },
-  };
-
-const int NUM_TEMPLATES = sizeof(shape_templates) / sizeof(shape_templates[0]);
-
 Shape shape_from_template(unsigned int template_id, unsigned int color) {
   Shape template = shape_templates[template_id];
   return (Shape) {template.width, template.height, color, template.data};
@@ -113,6 +81,8 @@ typedef struct {
   
   Shape selection[SELECTION_SIZE];
   int dragging_shape;
+  
+  int score;
   } GameContext;
 
 void generate_selection(GameContext *ctx);
@@ -316,8 +286,10 @@ bool frame(GameContext *ctx) {
       
       if (index < BOARD_SIZE * BOARD_SIZE) {
         if (place_shape(ctx->board, shape, block_x, block_y)) {
-          clear_solved(ctx->board);
+          ctx->score += clear_solved(ctx->board);
           ctx->selection[ctx->dragging_shape].color = 0;
+          
+          printf("%d\n", ctx->score);
           }
         }
       
