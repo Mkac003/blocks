@@ -44,7 +44,7 @@ void Blit(SDL_Renderer *renderer, SDL_Texture *texture, int x, int y) {
 
 /* ... */
 #define BLOCK_SIZE_PX 32
-#define BOARD_SIZE 8
+#define BOARD_SIZE 10
 
 #define SELECTION_SIZE 3
 
@@ -60,10 +60,9 @@ Shape shape_from_template(unsigned int template_id, unsigned int color) {
 
 const SDL_Color colors[] = {
   (SDL_Color) {0, 0, 0, 0}, /* unused */
-  (SDL_Color) {255, 0, 0, 255},
-  (SDL_Color) {255, 0, 255, 255},
-  (SDL_Color) {0, 0, 255, 255},
-  (SDL_Color) {0, 255, 0, 255},
+  (SDL_Color) {255, 53, 53, 255},
+  (SDL_Color) {72, 153, 94, 255},
+  (SDL_Color) {62, 92, 169, 255},
   };
 
 const int NUM_COLORS = sizeof(colors) / sizeof(colors[0]);
@@ -170,7 +169,7 @@ void draw_block(GameContext *ctx, int screen_x, int screen_y, SDL_Color color) {
   
   SDL_Texture *texture = ctx->textures[TEXTURE_BLOCK];
   
-  SDL_SetTextureAlphaMod(texture, 96);
+  SDL_SetTextureAlphaMod(texture, 72);
   SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
   Blit(ctx->renderer, texture, screen_x, screen_y);
   }
