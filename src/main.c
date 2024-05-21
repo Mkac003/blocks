@@ -90,7 +90,7 @@ Shape shape_from_template(unsigned int template_id, unsigned int color) {
 /* Colors */
 
 const SDL_Color colors[] = {
-  (SDL_Color) {0, 0, 0, 0}, /* unused */
+  (SDL_Color) {255, 255, 255, 255}, /* used for highliting */
   (SDL_Color) {255, 53, 53, 255},
   (SDL_Color) {72, 153, 94, 255},
   (SDL_Color) {62, 92, 169, 255},
@@ -279,7 +279,7 @@ void clear_solved(uint8_t *board, int *cleared_x, int *cleared_y) {
   }
 
 void generate_selection(GameContext *ctx) {
-  /* Generate selection*/
+  /* Generate selection */
   for (int i=0; i<SELECTION_SIZE; i ++) {
     ctx->selection[i] = shape_from_template(randint(0, NUM_TEMPLATES-1), randint(1, NUM_COLORS-1));
     }
@@ -358,38 +358,28 @@ bool place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
   }
 
 void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2], uint32_t button_mask, bool just_clicked) {
-  /* Draw the board */
-  {
-    int screen_x, screen_y, x, y, index;
-    for (int x=0; x<BOARD_SIZE; x ++) {
-      for (int y=0; y<BOARD_SIZE; y ++) {
-        screen_x = BLOCK_SIZE_PX * x + board_position[X];
-        screen_y = BLOCK_SIZE_PX * y + board_position[Y];
-        index = y * BOARD_SIZE + x;
-        
-        if (ctx->board[index])
-          draw_block(ctx, screen_x, screen_y, colors[ctx->board[index]]);
-        else
-          Blit(ctx->renderer, ctx->textures[TEXTURE_BLOCK_EMPTY], screen_x, screen_y);
-        }
-      }
-    }
+  uint8_t predicted_board[BOARD_SIZE * BOARD_SIZE] = {0};
+  memcpy(predicted_board, ctx->board, sizeof(uint8_t) * BOARD_SIZE * BOARD_SIZE);
+  
+  bool can_place;
+  int block_x, block_y;
+  const Shape drag_shape = ctx->selection[ctx->dragging_shape];
   
   /* Place the dragged shape if the mouse is released and the shape is in bounds */
   {
+    int screen_x = mouse_position[X] - drag_shape.width * BLOCK_SIZE_PX / 2;
+    int screen_y = mouse_position[Y] - drag_shape.height * BLOCK_SIZE_PX - MOUSE_DRAG_PADDING;
+    
+    block_x = round((float) (screen_x - board_position[X]) / (float) BLOCK_SIZE_PX);
+    block_y = round((float) (screen_y - board_position[Y]) / (float) BLOCK_SIZE_PX);
+    
+    can_place = place_shape(predicted_board, drag_shape, block_x, block_y);
+    
     if (ctx->dragging_shape != NOT_DRAGGING && !(button_mask & SDL_BUTTON(1))) {
-      const Shape shape = ctx->selection[ctx->dragging_shape];
-      
-      int screen_x = mouse_position[X] - shape.width * BLOCK_SIZE_PX / 2;
-      int screen_y = mouse_position[Y] - shape.height * BLOCK_SIZE_PX - MOUSE_DRAG_PADDING;
-      
-      int block_x = round((float) (screen_x - board_position[X]) / (float) BLOCK_SIZE_PX);
-      int block_y = round((float) (screen_y - board_position[Y]) / (float) BLOCK_SIZE_PX);
-      
       int index = block_y * BOARD_SIZE + block_x;
       
       if (index < BOARD_SIZE * BOARD_SIZE) {
-        if (place_shape(ctx->board, shape, block_x, block_y)) {
+        if (place_shape(ctx->board, drag_shape, block_x, block_y)) {
           int cleared_x = 0;
           int cleared_y = 0;
           clear_solved(ctx->board, &cleared_x, &cleared_y);
@@ -405,6 +395,47 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
         }
       
       ctx->dragging_shape = NOT_DRAGGING;
+      }
+    }
+  
+  /* Draw the board */
+  {
+    /* get the blocks that should be highlighted */
+    bool rows[BOARD_SIZE] = {false};
+    bool columns[BOARD_SIZE] = {false};
+    
+    get_solved(predicted_board, rows, columns);
+    
+    /* todo: get the blocks under the dragged shape */
+    
+    
+    int screen_x, screen_y, x, y, index;
+    bool highlight;
+    
+    for (int x=0; x<BOARD_SIZE; x ++) {
+      for (int y=0; y<BOARD_SIZE; y ++) {
+        screen_x = BLOCK_SIZE_PX * x + board_position[X];
+        screen_y = BLOCK_SIZE_PX * y + board_position[Y];
+        index = y * BOARD_SIZE + x;
+        
+        highlight = rows[y] || columns[x];
+        
+        if (can_place) {
+          int x_rel = x - block_x;
+          int y_rel = y - block_y;
+          
+          if (x_rel >= 0 && y_rel >= 0 && x_rel < drag_shape.width && y_rel < drag_shape.height) {
+            if (drag_shape.data[y_rel * drag_shape.width + x_rel] == '1') highlight = true;
+            }
+          }
+        
+        if (highlight)
+          draw_block(ctx, screen_x, screen_y, colors[0]);
+        else if (ctx->board[index])
+          draw_block(ctx, screen_x, screen_y, colors[ctx->board[index]]);
+        else
+          Blit(ctx->renderer, ctx->textures[TEXTURE_BLOCK_EMPTY], screen_x, screen_y);
+        }
       }
     }
   
