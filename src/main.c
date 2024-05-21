@@ -309,35 +309,44 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       }
     }
   
-  /* Draw and update the selection */
+  /* Draw and update the selection area */
   {
-    const int padding = 100;
+    const int padding = 10;
     int center_x, screen_x, screen_y;
     Shape shape;
+    int selection_width = 0;
     
+    /* Calculate the total width of the selection area */
+    for (int i=0; i<SELECTION_SIZE; i ++) {
+      shape = ctx->selection[i];
+      selection_width += shape.width * BLOCK_SIZE_PX + padding;
+      }
+    
+    selection_width -= padding;
+    screen_x = board_position[X] + BOARD_SIZE * BLOCK_SIZE_PX / 2 - selection_width / 2;
+    
+    /* Draw and update it */
     for (int i=0; i<SELECTION_SIZE; i ++) {
       shape = ctx->selection[i];
       
       if (shape.color == 0) continue;
       
       if (ctx->dragging_shape == i) {
-        screen_x = mouse_position[X] - shape.width * BLOCK_SIZE_PX / 2;
+        int drag_screen_x = mouse_position[X] - shape.width * BLOCK_SIZE_PX / 2;
         screen_y = mouse_position[Y] - shape.height * BLOCK_SIZE_PX - MOUSE_DRAG_PADDING;
         
-        draw_shape(ctx, shape, screen_x, screen_y);
+        draw_shape(ctx, shape, drag_screen_x, screen_y);
         }
       else {
-        center_x = (ctx->window_size[WIDTH] / 2) - (SELECTION_SIZE * padding / 2) + (i * padding) + padding / 2;
-        screen_x = center_x - shape.width * BLOCK_SIZE_PX / 2;
-        screen_y = board_position[Y] + BOARD_SIZE * BLOCK_SIZE_PX + 10;
+        screen_y = board_position[Y] + BOARD_SIZE * BLOCK_SIZE_PX + padding;
         
         draw_shape(ctx, shape, screen_x, screen_y);
         
-        if (shape_is_hovered(shape, screen_x, screen_y, mouse_position[X], mouse_position[Y])) {
-          if (just_clicked) {
-            ctx->dragging_shape = i;
-            }
+        if (shape_is_hovered(shape, screen_x, screen_y, mouse_position[X], mouse_position[Y]) && just_clicked) {
+          ctx->dragging_shape = i;
           }
+        
+        screen_x += shape.width * BLOCK_SIZE_PX + padding;
         }
       }
     }
