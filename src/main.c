@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdbool.h>
 #include <time.h>
 
 #include <SDL2/SDL.h>
@@ -25,6 +24,10 @@ void Blit(SDL_Renderer *renderer, SDL_Texture *texture, int x, int y) {
   }
 
 #define ASSERT(x, msg) do {if (!(x)) {printf("(%s:%d) assertion %s failed: %s\n", __FILE__, __LINE__, #x, msg);}} while (0)
+
+typedef unsigned char bool;
+#define true 1
+#define false 0
 
 /* ========== MAIN ========== */
 
@@ -125,9 +128,8 @@ void init(GameContext *ctx) {
   ctx->state = GAME_MAIN_MENU;
   }
 
-int clear_solved(uint8_t *board) {
-  int score = 0;
-  bool is_full = false;
+void get_solved(uint8_t *board, bool *rows, bool *columns) {
+  bool is_full;
   
   /* X */
   for (int row=0; row<BOARD_SIZE; row++) {
@@ -140,10 +142,7 @@ int clear_solved(uint8_t *board) {
         }
       }
     
-    if (is_full) {
-      score += BOARD_SIZE;
-      memset(board + row * BOARD_SIZE, 0, sizeof(uint8_t) * BOARD_SIZE);
-      }
+    if (is_full) rows[row] = true;
     }
   
   /* Y */
@@ -157,14 +156,30 @@ int clear_solved(uint8_t *board) {
         }
       }
     
-    if (is_full) {
-      score += BOARD_SIZE;
-      for (int y=0; y<BOARD_SIZE; y++)
-        board[y * BOARD_SIZE + column] = 0;
-      }
+    if (is_full) columns[column] = true;
+    }
+  }
+
+void clear_solved(uint8_t *board, int *cleared_x, int *cleared_y) {
+  bool rows[BOARD_SIZE] = {false};
+  bool columns[BOARD_SIZE] = {false};
+  
+  get_solved(board, rows, columns);
+  
+  for (int row=0; row<BOARD_SIZE; row++) {
+    if (!rows[row]) continue;
+    memset(board + row * BOARD_SIZE, 0, sizeof(uint8_t) * BOARD_SIZE);
+    
+    (*cleared_x) ++;
     }
   
-  return score;
+  for (int column=0; column<BOARD_SIZE; column++) {
+    if (!columns[column]) continue;
+    for (int y=0; y<BOARD_SIZE; y++)
+      board[y * BOARD_SIZE + column] = 0;
+    
+    (*cleared_y) ++;
+    }
   }
 
 void generate_selection(GameContext *ctx) {
@@ -276,10 +291,17 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       
       if (index < BOARD_SIZE * BOARD_SIZE) {
         if (place_shape(ctx->board, shape, block_x, block_y)) {
-          ctx->score += clear_solved(ctx->board);
-          ctx->selection[ctx->dragging_shape].color = 0;
+          int cleared_x = 0;
+          int cleared_y = 0;
+          clear_solved(ctx->board, &cleared_x, &cleared_y);
           
-          printf("%d\n", ctx->score);
+          int score_x = cleared_x * BOARD_SIZE;
+          int score_y = cleared_y * BOARD_SIZE;
+          
+          ctx->score += score_x + score_y + (score_x * score_y / 2);
+          
+          ctx->selection[ctx->dragging_shape].color = 0;
+          printf("score: %d\n", ctx->score);
           }
         }
       

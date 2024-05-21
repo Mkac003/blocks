@@ -121,6 +121,36 @@ const Shape shape_templates[] = {
     0,
     "1",
     },
+  (Shape) {
+    3, 2,
+    0,
+    "111010",
+    },
+  (Shape) {
+    3, 2,
+    0,
+    "010111",
+    },
+  (Shape) {
+    2, 3,
+    0,
+    "011101",
+    },
+  (Shape) {
+    2, 3,
+    0,
+    "101110",
+    },
+  (Shape) {
+    1, 4,
+    0,
+    "1111",
+    },
+  (Shape) {
+    4, 1,
+    0,
+    "1111",
+    },
   };
 
 const int NUM_TEMPLATES = sizeof(shape_templates) / sizeof(shape_templates[0]);
