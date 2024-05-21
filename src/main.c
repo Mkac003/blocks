@@ -23,6 +23,21 @@ void Blit(SDL_Renderer *renderer, SDL_Texture *texture, int x, int y) {
   if (SDL_RenderCopy(renderer, texture, NULL, &(SDL_Rect) {x, y, w, h})) handle_sdl_error();
   }
 
+int clampi(int v, int mi, int mx) {
+  if (v < mi) return mi;
+  if (v > mx) return mx;
+  return v;
+  }
+
+SDL_Color AdjustColorBrightness(SDL_Color color, int f) {
+  return (SDL_Color) {
+                      clampi((int) color.r + f, 0, 255),
+                      clampi((int) color.g + f, 0, 255),
+                      clampi((int) color.b + f, 0, 255),
+                      color.a,
+                      };
+  }
+
 #define ASSERT(x, msg) do {if (!(x)) {printf("(%s:%d) assertion %s failed: %s\n", __FILE__, __LINE__, #x, msg);}} while (0)
 
 typedef unsigned char bool;
@@ -44,10 +59,23 @@ typedef unsigned char bool;
 
 #define TEXTURE_BLOCK        0
 #define TEXTURE_BLOCK_EMPTY  1
+#define TEXTURE_RESTART      2
 
 /* ... */
+const uint8_t block_texture_colors[] = {
+  253, /* TOP */
+  159, /* RIGHT */
+  112, /* BOTTOM */
+  224, /* LEFT */
+  200, /* MIDDLE */
+  92,  /* BORDER */
+  };
+
+#define BLOCK_TEXTURE_SIDE_PX 6
+
+#define BLOCK_ALPHA_MOD 72
 #define BLOCK_SIZE_PX 32
-#define BOARD_SIZE 10
+#define BOARD_SIZE 8
 
 #define SELECTION_SIZE 3
 
@@ -95,7 +123,72 @@ typedef struct {
   int score;
   } GameContext;
 
+void draw_block_rect(GameContext *ctx, int x, int y, int w, int h, SDL_Color color) {
+  /* crazy but it works */
+  SDL_Texture *block_texture = ctx->textures[TEXTURE_BLOCK];
+  
+  SDL_SetRenderDrawColor(ctx->renderer, color.r, color.g, color.b, 255);
+  SDL_RenderFillRect(ctx->renderer, &(SDL_Rect) {x, y, w, h});
+  
+  SDL_SetTextureAlphaMod(block_texture, BLOCK_ALPHA_MOD);
+  SDL_SetTextureBlendMode(block_texture, SDL_BLENDMODE_BLEND);
+  
+  SDL_RenderCopy(ctx->renderer, block_texture, &(SDL_Rect) {0, 0, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX}, &(SDL_Rect) {x, y, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX});
+  SDL_SetRenderDrawColor(ctx->renderer, block_texture_colors[0], block_texture_colors[0], block_texture_colors[0], BLOCK_ALPHA_MOD);
+  SDL_RenderFillRect(ctx->renderer, &(SDL_Rect) {x+BLOCK_TEXTURE_SIDE_PX, y, w-BLOCK_TEXTURE_SIDE_PX*2, BLOCK_TEXTURE_SIDE_PX});
+  
+  SDL_RenderCopy(ctx->renderer, block_texture, &(SDL_Rect) {BLOCK_SIZE_PX-BLOCK_TEXTURE_SIDE_PX, 0, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX}, &(SDL_Rect) {x+w-BLOCK_TEXTURE_SIDE_PX, y, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX});
+  SDL_SetRenderDrawColor(ctx->renderer, block_texture_colors[1], block_texture_colors[1], block_texture_colors[1], BLOCK_ALPHA_MOD);
+  SDL_RenderFillRect(ctx->renderer, &(SDL_Rect) {x+w-BLOCK_TEXTURE_SIDE_PX, y+BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX, h-BLOCK_TEXTURE_SIDE_PX*2});
+  
+  SDL_RenderCopy(ctx->renderer, block_texture, &(SDL_Rect) {BLOCK_SIZE_PX-BLOCK_TEXTURE_SIDE_PX, BLOCK_SIZE_PX-BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX}, &(SDL_Rect) {x+w-BLOCK_TEXTURE_SIDE_PX, y+h-BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX});
+  SDL_SetRenderDrawColor(ctx->renderer, block_texture_colors[2], block_texture_colors[2], block_texture_colors[2], BLOCK_ALPHA_MOD);
+  SDL_RenderFillRect(ctx->renderer, &(SDL_Rect) {x+BLOCK_TEXTURE_SIDE_PX, y+h-BLOCK_TEXTURE_SIDE_PX, w-BLOCK_TEXTURE_SIDE_PX*2, BLOCK_TEXTURE_SIDE_PX});
+  
+  SDL_RenderCopy(ctx->renderer, block_texture, &(SDL_Rect) {0, BLOCK_SIZE_PX-BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX}, &(SDL_Rect) {x, y+h-BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX});
+  SDL_SetRenderDrawColor(ctx->renderer, block_texture_colors[3], block_texture_colors[3], block_texture_colors[3], BLOCK_ALPHA_MOD);
+  SDL_RenderFillRect(ctx->renderer, &(SDL_Rect) {x, y+BLOCK_TEXTURE_SIDE_PX, BLOCK_TEXTURE_SIDE_PX, h-BLOCK_TEXTURE_SIDE_PX*2});
+  
+  SDL_SetRenderDrawColor(ctx->renderer, block_texture_colors[4], block_texture_colors[4], block_texture_colors[4], BLOCK_ALPHA_MOD);
+  SDL_RenderFillRect(ctx->renderer, &(SDL_Rect) {x+BLOCK_TEXTURE_SIDE_PX, y+BLOCK_TEXTURE_SIDE_PX, w-BLOCK_TEXTURE_SIDE_PX*2, h-BLOCK_TEXTURE_SIDE_PX*2});
+  
+  SDL_SetRenderDrawColor(ctx->renderer, color.r, color.g, color.b, 255);
+  SDL_RenderDrawRect(ctx->renderer, &(SDL_Rect) {x+BLOCK_TEXTURE_SIDE_PX, y+BLOCK_TEXTURE_SIDE_PX, w-BLOCK_TEXTURE_SIDE_PX*2, h-BLOCK_TEXTURE_SIDE_PX*2});
+  
+  SDL_SetRenderDrawColor(ctx->renderer, block_texture_colors[5], block_texture_colors[5], block_texture_colors[5], BLOCK_ALPHA_MOD);
+  SDL_RenderDrawRect(ctx->renderer, &(SDL_Rect) {x+BLOCK_TEXTURE_SIDE_PX, y+BLOCK_TEXTURE_SIDE_PX, w-BLOCK_TEXTURE_SIDE_PX*2, h-BLOCK_TEXTURE_SIDE_PX*2});
+  }
+
+bool button_frame(GameContext *ctx, int x, int y, int w, int h, int texture_id, int color_id, int mouse_position[2], bool just_clicked) {
+  SDL_Color color = colors[color_id];
+  bool retval = false;
+  
+  if (mouse_position[0] > x && mouse_position[0] < x+w) {
+    if (mouse_position[1] > y && mouse_position[1] < y+h) {
+      color = AdjustColorBrightness(color, 35);
+      
+      if (just_clicked) retval = true;
+      }
+    }
+  
+  draw_block_rect(ctx, x, y, w, h, color);
+  
+  SDL_Texture *texture = ctx->textures[texture_id];
+  
+  int texture_width, texture_height;
+  if (SDL_QueryTexture(texture, NULL, NULL, &texture_width, &texture_height))
+    handle_sdl_error();
+  
+  Blit(ctx->renderer, texture, x+(w/2-texture_width/2), y+(h/2-texture_height/2));
+  
+  return retval;
+  }
+
 void generate_selection(GameContext *ctx);
+
+void clear_board(uint8_t *board) {
+  memset(board, 0, sizeof(board[0]) * BOARD_SIZE * BOARD_SIZE);
+  }
 
 void init(GameContext *ctx) {
   srand(time(NULL));
@@ -110,14 +203,17 @@ void init(GameContext *ctx) {
   ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_ACCELERATED);
   if (!ctx->renderer) handle_sdl_error();
   
+  SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
+  
   /* Load textures */
   ctx->textures[TEXTURE_BLOCK]       = IMG_LoadTexture(ctx->renderer, "res/block.png");
   ctx->textures[TEXTURE_BLOCK_EMPTY] = IMG_LoadTexture(ctx->renderer, "res/block_empty.png");
+  ctx->textures[TEXTURE_RESTART]     = IMG_LoadTexture(ctx->renderer, "res/restart_button.png");
   
   if (!ctx->textures[0]) handle_sdl_error();
   
   /* Clear the board */
-  memset(ctx->board, 0, sizeof(ctx->board[0]) * BOARD_SIZE * BOARD_SIZE);
+  clear_board(ctx->board);
   
   generate_selection(ctx);
   
@@ -195,7 +291,7 @@ void draw_block(GameContext *ctx, int screen_x, int screen_y, SDL_Color color) {
   
   SDL_Texture *texture = ctx->textures[TEXTURE_BLOCK];
   
-  SDL_SetTextureAlphaMod(texture, 72);
+  SDL_SetTextureAlphaMod(texture, BLOCK_ALPHA_MOD);
   SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
   Blit(ctx->renderer, texture, screen_x, screen_y);
   }
@@ -235,6 +331,9 @@ bool shape_is_hovered(Shape shape, int screen_x, int screen_y, int mouse_x, int 
   }
 
 bool place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
+  if (block_x < 0 || block_y < 0 || block_x + shape.width > BOARD_SIZE || block_y + shape.height > BOARD_SIZE)
+    return false;
+  
   /* Check if the shape can be placed */
   for (int shape_x=0; shape_x < shape.width; shape_x ++) {
     for (int shape_y=0; shape_y < shape.height; shape_y ++) {
@@ -364,6 +463,19 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
     
     if (do_generate)
       generate_selection(ctx);
+    }
+  
+  bool do_restart = button_frame(ctx,
+    board_position[X] + BOARD_SIZE * BLOCK_SIZE_PX - (BLOCK_SIZE_PX * 2),
+    board_position[Y] - BLOCK_SIZE_PX - 5,
+    BLOCK_SIZE_PX * 2, BLOCK_SIZE_PX,
+    TEXTURE_RESTART, 1,
+    mouse_position,
+    just_clicked);
+  
+  if (do_restart) {
+    generate_selection(ctx);
+    clear_board(ctx->board);
     }
   }
 
