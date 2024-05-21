@@ -329,7 +329,7 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
     for (int i=0; i<SELECTION_SIZE; i ++) {
       shape = ctx->selection[i];
       
-      if (shape.color == 0) continue;
+      if (shape.color == 0) goto skip;
       
       if (ctx->dragging_shape == i) {
         int drag_screen_x = mouse_position[X] - shape.width * BLOCK_SIZE_PX / 2;
@@ -345,9 +345,10 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
         if (shape_is_hovered(shape, screen_x, screen_y, mouse_position[X], mouse_position[Y]) && just_clicked) {
           ctx->dragging_shape = i;
           }
-        
-        screen_x += shape.width * BLOCK_SIZE_PX + padding;
         }
+      
+      skip:
+      screen_x += shape.width * BLOCK_SIZE_PX + padding;
       }
     }
   
