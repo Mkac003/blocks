@@ -69,9 +69,17 @@ const int NUM_COLORS = sizeof(colors) / sizeof(colors[0]);
 
 /* ... */
 
+typedef enum {
+  GAME_MAIN_MENU,
+  GAME_OVER,
+  GAME_PLAYING,
+  } GameState;
+
 typedef struct {
   SDL_Window *window;
   SDL_Renderer *renderer;
+  
+  GameState state;
   
   int window_size[2];
   
@@ -112,6 +120,9 @@ void init(GameContext *ctx) {
   
   /* no shape is currently being dragged */
   ctx->dragging_shape = NOT_DRAGGING;
+  
+  /* start in the main menu */
+  ctx->state = GAME_MAIN_MENU;
   }
 
 int clear_solved(uint8_t *board) {
@@ -232,27 +243,7 @@ bool place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
   return true;
   }
 
-bool frame(GameContext *ctx) {
-  bool just_clicked = false;
-  SDL_Event event;
-  while (SDL_PollEvent(&event)) {
-    if (event.type == SDL_QUIT) return true;
-    if (event.type == SDL_MOUSEBUTTONDOWN) {
-      if (event.button.button == SDL_BUTTON_LEFT) just_clicked = true;
-      }
-    }
-  
-  int board_position[2] = {
-    ctx->window_size[WIDTH] / 2 - (BLOCK_SIZE_PX * BOARD_SIZE) / 2,
-    100
-    };
-  
-  int mouse_position[2] = {0};
-  uint32_t button_mask = SDL_GetMouseState(&mouse_position[X], &mouse_position[Y]);
-  
-  SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, 255);
-  SDL_RenderClear(ctx->renderer);
-  
+void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2], uint32_t button_mask, bool just_clicked) {
   /* Draw the board */
   {
     int screen_x, screen_y, x, y, index;
@@ -342,6 +333,33 @@ bool frame(GameContext *ctx) {
     if (do_generate)
       generate_selection(ctx);
     }
+  }
+
+bool frame(GameContext *ctx) {
+  bool just_clicked = false;
+  SDL_Event event;
+  while (SDL_PollEvent(&event)) {
+    if (event.type == SDL_QUIT) return true;
+    if (event.type == SDL_MOUSEBUTTONDOWN) {
+      if (event.button.button == SDL_BUTTON_LEFT) just_clicked = true;
+      }
+    }
+  
+  int board_position[2] = {
+    ctx->window_size[WIDTH] / 2 - (BLOCK_SIZE_PX * BOARD_SIZE) / 2,
+    100
+    };
+  
+  int mouse_position[2] = {0};
+  uint32_t button_mask = SDL_GetMouseState(&mouse_position[X], &mouse_position[Y]);
+  
+  SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, 255);
+  SDL_RenderClear(ctx->renderer);
+  
+  if (ctx->state == GAME_PLAYING) {
+    frame_playing(ctx, board_position, mouse_position, button_mask, just_clicked);
+    }
+  else if (ctx->state == GAME_MAIN_MENU) ctx->state = GAME_PLAYING;
   
   SDL_RenderPresent(ctx->renderer);
   
