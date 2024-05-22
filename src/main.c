@@ -250,7 +250,7 @@ void clear_board(uint8_t *board) {
 void init(GameContext *ctx) {
   srand(time(NULL));
   
-  ctx->window_size[WIDTH] = BOARD_SIZE * BLOCK_SIZE_PX + 50;
+  ctx->window_size[WIDTH] = BOARD_SIZE * BLOCK_SIZE_PX + 100;
   ctx->window_size[HEIGHT] = BOARD_SIZE * BLOCK_SIZE_PX + 250;
   
   /* Create the window and SDL renderer */
@@ -405,7 +405,7 @@ bool shape_is_hovered(Shape shape, int screen_x, int screen_y, int mouse_x, int 
   }
 
 bool can_place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
-  if (block_x < 0 || block_y < 0 || block_x + shape.width-1 > BOARD_SIZE || block_y + shape.height-1 > BOARD_SIZE)
+  if (block_x < 0 || block_y < 0 || block_x + shape.width > BOARD_SIZE || block_y + shape.height > BOARD_SIZE)
     return false;
   
   for (int shape_x=0; shape_x < shape.width; shape_x ++) {
@@ -486,9 +486,39 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       
       if (index < BOARD_SIZE * BOARD_SIZE) {
         if (place_shape(ctx->board, drag_shape, block_x, block_y)) {
+          int cleared_x = 0;
+          int cleared_y = 0;
+          clear_solved(ctx->board, &cleared_x, &cleared_y);
+          
+          int score_x = cleared_x * BOARD_SIZE;
+          int score_y = cleared_y * BOARD_SIZE;
+          
+          ctx->score += score_x + score_y + (score_x * score_y / 2);
+          ctx->selection[ctx->dragging_shape].color = 0;
+          
+          /* Regenerate the selection when all the blocks are used up */
+          {
+            bool do_generate = true;
+            
+            Shape shape;
+            for (int i=0; i<SELECTION_SIZE; i ++) {
+              shape = ctx->selection[i];
+              
+              if (shape.color) {
+                do_generate = false;
+                break;
+                }
+              }
+            
+            if (do_generate)
+              generate_selection(ctx);
+            }
+          
+          /* Check if the game should be over */
           bool can_place_anything = false;
           for (int i=0; i<SELECTION_SIZE; i++) {
             Shape shape = ctx->selection[i];
+            
             if (!shape.color) continue;
             if (can_place_shape_anywhere(ctx->board, shape))
               can_place_anything = true;
@@ -499,17 +529,6 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
             ctx->game_over_squares_left = BOARD_SIZE * BOARD_SIZE;
             ctx->game_over_anim_timer = 0;
             }
-          
-          int cleared_x = 0;
-          int cleared_y = 0;
-          clear_solved(ctx->board, &cleared_x, &cleared_y);
-          
-          int score_x = cleared_x * BOARD_SIZE;
-          int score_y = cleared_y * BOARD_SIZE;
-          
-          ctx->score += score_x + score_y + (score_x * score_y / 2);
-          
-          ctx->selection[ctx->dragging_shape].color = 0;
           }
         }
       
@@ -617,24 +636,6 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       skip:
       screen_x += shape.width * BLOCK_SIZE_PX + padding;
       }
-    }
-  
-  /* Regenerate the selection when all the blocks are used and switch to game over state when there arent any moves left */
-  {
-    bool do_generate = true;
-    
-    Shape shape;
-    for (int i=0; i<SELECTION_SIZE; i ++) {
-      shape = ctx->selection[i];
-      
-      if (shape.color) {
-        do_generate = false;
-        break;
-        }
-      }
-    
-    if (do_generate)
-      generate_selection(ctx);
     }
   }
 
