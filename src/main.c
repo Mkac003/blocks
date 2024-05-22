@@ -93,8 +93,8 @@ const uint8_t block_texture_colors[] = {
 
 #define BLOCK_ALPHA_MOD 72
 #define BLOCK_SIZE_PX 32
-#define BOARD_SIZE 8
 
+#define BOARD_SIZE 8
 #define SELECTION_SIZE 3
 
 #define NOT_DRAGGING -1
@@ -486,6 +486,20 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       
       if (index < BOARD_SIZE * BOARD_SIZE) {
         if (place_shape(ctx->board, drag_shape, block_x, block_y)) {
+          bool can_place_anything = false;
+          for (int i=0; i<SELECTION_SIZE; i++) {
+            Shape shape = ctx->selection[i];
+            if (!shape.color) continue;
+            if (can_place_shape_anywhere(ctx->board, shape))
+              can_place_anything = true;
+            }
+          
+          if (!can_place_anything && ctx->playing_state != GAME_OVER_ANIMATION) {
+            ctx->playing_state = GAME_OVER_ANIMATION;
+            ctx->game_over_squares_left = BOARD_SIZE * BOARD_SIZE;
+            ctx->game_over_anim_timer = 0;
+            }
+          
           int cleared_x = 0;
           int cleared_y = 0;
           clear_solved(ctx->board, &cleared_x, &cleared_y);
@@ -507,7 +521,7 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
     ctx->game_over_anim_timer -= ctx->dt;
     
     if (ctx->game_over_anim_timer <= 0) {
-      ctx->game_over_anim_timer = 50;
+      ctx->game_over_anim_timer = 2000 / (BOARD_SIZE * BOARD_SIZE);
       ctx->board[BOARD_SIZE * BOARD_SIZE - ctx->game_over_squares_left] = 1;
       ctx->game_over_squares_left --;
       
@@ -621,20 +635,6 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
     
     if (do_generate)
       generate_selection(ctx);
-    
-    bool can_place_anything = false;
-    for (int i=0; i<SELECTION_SIZE; i++) {
-      shape = ctx->selection[i];
-      if (!shape.color) continue;
-      if (can_place_shape_anywhere(ctx->board, shape))
-        can_place_anything = true;
-      }
-    
-    if (!can_place_anything && ctx->playing_state != GAME_OVER_ANIMATION) {
-      ctx->playing_state = GAME_OVER_ANIMATION;
-      ctx->game_over_squares_left = BOARD_SIZE * BOARD_SIZE;
-      ctx->game_over_anim_timer = 0;
-      }
     }
   }
 
