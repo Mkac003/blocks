@@ -5,6 +5,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #include "shapes.h"
 
 /* ========== UTILS ========== */
@@ -684,11 +688,19 @@ int main() {
   
   init(ctx);
   
+  #ifdef __EMSCRIPTEN__
+  
+  emscripten_set_main_loop_arg((em_arg_callback_func) frame, ctx, FPS, 1);
+  
+  #else
+  
   while (1) {
     if (frame(ctx)) break;
     }
   
   stop(ctx);
+  
+  #endif
   
   return 0;
   }
