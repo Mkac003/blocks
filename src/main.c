@@ -57,9 +57,21 @@ typedef unsigned char bool;
 /* texture constants */
 #define NUM_TEXTURES 16
 
-#define TEXTURE_BLOCK        0
-#define TEXTURE_BLOCK_EMPTY  1
-#define TEXTURE_RESTART      2
+#define TEXTURE_BLOCK            0
+#define TEXTURE_BLOCK_EMPTY      1
+#define TEXTURE_RESTART          2
+#define TEXTURE_7SEGMENT_0       3
+#define TEXTURE_7SEGMENT_1       4
+#define TEXTURE_7SEGMENT_2       5
+#define TEXTURE_7SEGMENT_3       6
+#define TEXTURE_7SEGMENT_4       7
+#define TEXTURE_7SEGMENT_5       8
+#define TEXTURE_7SEGMENT_6       9
+#define TEXTURE_7SEGMENT_7       10
+#define TEXTURE_7SEGMENT_8       11
+#define TEXTURE_7SEGMENT_9       12
+#define TEXTURE_7SEGMENT_BG      13
+#define TEXTURE_7SEGMENT_MINUS   14
 
 /* ... */
 const uint8_t block_texture_colors[] = {
@@ -184,6 +196,30 @@ bool button_frame(GameContext *ctx, int x, int y, int w, int h, int texture_id, 
   return retval;
   }
 
+void segment_display_frame(GameContext *ctx, int x, int y, int value, int digits) {
+  int digit;
+  int starting_x = x + digits * 22;
+  int screen_x = starting_x;
+  
+  bool draw_zero = false;
+  if (value == 0)
+    draw_zero = true;
+  
+  while (screen_x >= x) {
+    Blit(ctx->renderer, ctx->textures[TEXTURE_7SEGMENT_BG], screen_x, y);
+    if (value) {
+      digit = value % 10;
+      printf("%d\n", digit);
+      Blit(ctx->renderer, ctx->textures[TEXTURE_7SEGMENT_0 + digit], screen_x, y);
+      value /= 10;
+      }
+    screen_x -= 22;
+    }
+  
+  if (draw_zero)
+    Blit(ctx->renderer, ctx->textures[TEXTURE_7SEGMENT_0], starting_x, y);
+  }
+
 void generate_selection(GameContext *ctx);
 
 void clear_board(uint8_t *board) {
@@ -209,6 +245,19 @@ void init(GameContext *ctx) {
   ctx->textures[TEXTURE_BLOCK]       = IMG_LoadTexture(ctx->renderer, "res/block.png");
   ctx->textures[TEXTURE_BLOCK_EMPTY] = IMG_LoadTexture(ctx->renderer, "res/block_empty.png");
   ctx->textures[TEXTURE_RESTART]     = IMG_LoadTexture(ctx->renderer, "res/restart_button.png");
+  
+  ctx->textures[TEXTURE_7SEGMENT_0] = IMG_LoadTexture(ctx->renderer, "res/7seg0.png");
+  ctx->textures[TEXTURE_7SEGMENT_1] = IMG_LoadTexture(ctx->renderer, "res/7seg1.png");
+  ctx->textures[TEXTURE_7SEGMENT_2] = IMG_LoadTexture(ctx->renderer, "res/7seg2.png");
+  ctx->textures[TEXTURE_7SEGMENT_3] = IMG_LoadTexture(ctx->renderer, "res/7seg3.png");
+  ctx->textures[TEXTURE_7SEGMENT_4] = IMG_LoadTexture(ctx->renderer, "res/7seg4.png");
+  ctx->textures[TEXTURE_7SEGMENT_5] = IMG_LoadTexture(ctx->renderer, "res/7seg5.png");
+  ctx->textures[TEXTURE_7SEGMENT_6] = IMG_LoadTexture(ctx->renderer, "res/7seg6.png");
+  ctx->textures[TEXTURE_7SEGMENT_7] = IMG_LoadTexture(ctx->renderer, "res/7seg7.png");
+  ctx->textures[TEXTURE_7SEGMENT_8] = IMG_LoadTexture(ctx->renderer, "res/7seg8.png");
+  ctx->textures[TEXTURE_7SEGMENT_9] = IMG_LoadTexture(ctx->renderer, "res/7seg9.png");
+  ctx->textures[TEXTURE_7SEGMENT_BG] = IMG_LoadTexture(ctx->renderer, "res/7segbg.png");
+  ctx->textures[TEXTURE_7SEGMENT_MINUS] = IMG_LoadTexture(ctx->renderer, "res/7segminus.png");
   
   if (!ctx->textures[0]) handle_sdl_error();
   
@@ -498,16 +547,19 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
   
   bool do_restart = button_frame(ctx,
     board_position[X] + BOARD_SIZE * BLOCK_SIZE_PX - (BLOCK_SIZE_PX * 2),
-    board_position[Y] - BLOCK_SIZE_PX - 5,
+    board_position[Y] - BLOCK_SIZE_PX - 8,
     BLOCK_SIZE_PX * 2, BLOCK_SIZE_PX,
     TEXTURE_RESTART, 1,
     mouse_position,
     just_clicked);
   
   if (do_restart) {
+    ctx->score = 0;
     generate_selection(ctx);
     clear_board(ctx->board);
     }
+  
+  segment_display_frame(ctx, board_position[X], board_position[Y] - 40, ctx->score, 4);
   }
 
 bool frame(GameContext *ctx) {

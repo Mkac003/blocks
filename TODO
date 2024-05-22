@@ -1,9 +1,11 @@
 TODO for release 1.0.0:
   - game over check
   - main menu
-  - score display, high score
+  - high score
   - visual effects for breaking blocks
   
 DONE:
   - proper spacing between the selection shapes
   - restart button
+  - highlighting
+  - score display
