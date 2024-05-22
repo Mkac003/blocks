@@ -637,8 +637,8 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
 bool frame(GameContext *ctx) {
   /* Delta Time*/
   ctx->start_frame = SDL_GetPerformanceCounter();
-  ctx->last = ctx->start_frame;
   ctx->dt = (float) ((ctx->start_frame - ctx->last) * 1000 / (float) SDL_GetPerformanceFrequency());
+  ctx->last = ctx->start_frame;
   
   /* ... */
   
