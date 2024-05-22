@@ -513,6 +513,9 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
     if (ctx->playing_state != GAME_OVER_ANIMATION)
       get_solved(predicted_board, rows, columns);
     
+    SDL_SetRenderDrawColor(ctx->renderer, 200, 200, 200, 255);
+    SDL_RenderDrawRect(ctx->renderer, &(SDL_Rect) {board_position[X]-1, board_position[Y]-1, BOARD_SIZE * BLOCK_SIZE_PX+2, BOARD_SIZE * BLOCK_SIZE_PX+2});
+    
     int screen_x, screen_y, x, y, index;
     bool highlight;
     
