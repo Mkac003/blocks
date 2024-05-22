@@ -250,8 +250,8 @@ void clear_board(uint8_t *board) {
 void init(GameContext *ctx) {
   srand(time(NULL));
   
-  ctx->window_size[WIDTH] = 500;
-  ctx->window_size[HEIGHT] = 530;
+  ctx->window_size[WIDTH] = BOARD_SIZE * BLOCK_SIZE_PX + 50;
+  ctx->window_size[HEIGHT] = BOARD_SIZE * BLOCK_SIZE_PX + 250;
   
   /* Create the window and SDL renderer */
   ctx->window = SDL_CreateWindow("blocks", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ctx->window_size[WIDTH], ctx->window_size[HEIGHT], 0);
