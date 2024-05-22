@@ -379,11 +379,10 @@ bool shape_is_hovered(Shape shape, int screen_x, int screen_y, int mouse_x, int 
   return true;
   }
 
-bool place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
+bool can_place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
   if (block_x < 0 || block_y < 0 || block_x + shape.width > BOARD_SIZE || block_y + shape.height > BOARD_SIZE)
     return false;
   
-  /* Check if the shape can be placed */
   for (int shape_x=0; shape_x < shape.width; shape_x ++) {
     for (int shape_y=0; shape_y < shape.height; shape_y ++) {
       if (shape.data[shape_y * shape.width + shape_x] != '1') continue;
@@ -393,6 +392,11 @@ bool place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
       if (board[index]) return false;
       }
     }
+  }
+
+bool place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
+  /* Check if the shape can be placed */
+  if (!can_place_shape(board, shape, block_x, block_y)) return false;
   
   for (int shape_x=0; shape_x < shape.width; shape_x ++) {
     for (int shape_y=0; shape_y < shape.height; shape_y ++) {
@@ -439,7 +443,6 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
           ctx->score += score_x + score_y + (score_x * score_y / 2);
           
           ctx->selection[ctx->dragging_shape].color = 0;
-          printf("score: %d\n", ctx->score);
           }
         }
       
