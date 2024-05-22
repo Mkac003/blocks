@@ -447,6 +447,22 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
   uint8_t predicted_board[BOARD_SIZE * BOARD_SIZE] = {0};
   memcpy(predicted_board, ctx->board, sizeof(uint8_t) * BOARD_SIZE * BOARD_SIZE);
   
+  bool do_restart = button_frame(ctx,
+    board_position[X] + BOARD_SIZE * BLOCK_SIZE_PX - (BLOCK_SIZE_PX * 2),
+    board_position[Y] - BLOCK_SIZE_PX - 8,
+    BLOCK_SIZE_PX * 2, BLOCK_SIZE_PX,
+    TEXTURE_RESTART, 1,
+    mouse_position,
+    just_clicked);
+  
+  if (do_restart) {
+    ctx->score = 0;
+    generate_selection(ctx);
+    clear_board(ctx->board);
+    }
+  
+  segment_display_frame(ctx, board_position[X], board_position[Y] - 40, ctx->score, 4);
+  
   bool can_place;
   int block_x, block_y;
   const Shape drag_shape = ctx->selection[ctx->dragging_shape];
@@ -616,22 +632,6 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       ctx->game_over_anim_timer = 0;
       }
     }
-  
-  bool do_restart = button_frame(ctx,
-    board_position[X] + BOARD_SIZE * BLOCK_SIZE_PX - (BLOCK_SIZE_PX * 2),
-    board_position[Y] - BLOCK_SIZE_PX - 8,
-    BLOCK_SIZE_PX * 2, BLOCK_SIZE_PX,
-    TEXTURE_RESTART, 1,
-    mouse_position,
-    just_clicked);
-  
-  if (do_restart) {
-    ctx->score = 0;
-    generate_selection(ctx);
-    clear_board(ctx->board);
-    }
-  
-  segment_display_frame(ctx, board_position[X], board_position[Y] - 40, ctx->score, 4);
   }
 
 bool frame(GameContext *ctx) {
