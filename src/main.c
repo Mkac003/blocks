@@ -46,6 +46,8 @@ typedef unsigned char bool;
 
 /* ========== MAIN ========== */
 
+#define FPS 60
+
 /* indexing macros */
 
 #define WIDTH  0
@@ -131,8 +133,10 @@ typedef struct {
   GameState state;
   int window_size[2];
   
+  uint64_t start_frame;
+  uint64_t end_frame;
   uint64_t last;
-  uint64_t now;
+  
   float dt;
   
   /* ingame stuff */
@@ -186,13 +190,6 @@ void draw_block_rect(GameContext *ctx, int x, int y, int w, int h, SDL_Color col
   }
 
 bool button_frame(GameContext *ctx, int x, int y, int w, int h, int texture_id, int color_id, int mouse_position[2], bool just_clicked) {
-  /* Delta Time*/
-  ctx->last = ctx->now;
-  ctx->now = SDL_GetPerformanceCounter();
-  ctx->dt = (float) ((ctx->now - ctx->last) * 1000 / (float) SDL_GetPerformanceFrequency());
-  
-  /* ... */
-  
   SDL_Color color = colors[color_id];
   bool retval = false;
   
@@ -261,7 +258,6 @@ void init(GameContext *ctx) {
   
   SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
   
-  ctx->now = SDL_GetPerformanceCounter();
   ctx->last = SDL_GetPerformanceCounter();
   
   /* Load textures */
@@ -639,6 +635,13 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
   }
 
 bool frame(GameContext *ctx) {
+  /* Delta Time*/
+  ctx->start_frame = SDL_GetPerformanceCounter();
+  ctx->last = ctx->start_frame;
+  ctx->dt = (float) ((ctx->start_frame - ctx->last) * 1000 / (float) SDL_GetPerformanceFrequency());
+  
+  /* ... */
+  
   bool just_clicked = false;
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
@@ -665,6 +668,7 @@ bool frame(GameContext *ctx) {
   else if (ctx->state == GAME_MAIN_MENU) ctx->state = GAME_PLAYING;
   
   SDL_RenderPresent(ctx->renderer);
+  ctx->end_frame = SDL_GetPerformanceCounter();
   
   return false;
   }
@@ -672,6 +676,7 @@ bool frame(GameContext *ctx) {
 void stop(GameContext *ctx) {
   SDL_DestroyRenderer(ctx->renderer);
   SDL_DestroyWindow(ctx->window);
+  free(ctx);
   }
 
 int main() {
