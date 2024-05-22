@@ -14,4 +14,4 @@ web_build:
 	emcc src/main.c -O3 --shell-file web/shell.html --preload-file res -sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sSDL2_IMAGE_FORMATS='["png"]' -o build/web/blocks.html; \
 
 run:
-	cd build/native/;./main
+	cd build/native/;./blocks
