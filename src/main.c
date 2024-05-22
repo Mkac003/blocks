@@ -114,23 +114,37 @@ const int NUM_COLORS = sizeof(colors) / sizeof(colors[0]);
 
 typedef enum {
   GAME_MAIN_MENU,
-  GAME_OVER,
   GAME_PLAYING,
   } GameState;
 
+typedef enum {
+  PLAYING,
+  GAME_OVER_ANIMATION,
+  } PlayingState;
+
 typedef struct {
+  /* general */
   SDL_Window *window;
   SDL_Renderer *renderer;
+  SDL_Texture *textures[NUM_TEXTURES];
   
   GameState state;
-  
   int window_size[2];
   
-  SDL_Texture *textures[NUM_TEXTURES];
+  uint64_t last;
+  uint64_t now;
+  float dt;
+  
+  /* ingame stuff */
   uint8_t board[BOARD_SIZE * BOARD_SIZE];
   
   Shape selection[SELECTION_SIZE];
   int dragging_shape;
+  
+  PlayingState playing_state;
+  
+  float game_over_anim_timer;
+  int game_over_squares_left;
   
   int score;
   } GameContext;
@@ -172,6 +186,13 @@ void draw_block_rect(GameContext *ctx, int x, int y, int w, int h, SDL_Color col
   }
 
 bool button_frame(GameContext *ctx, int x, int y, int w, int h, int texture_id, int color_id, int mouse_position[2], bool just_clicked) {
+  /* Delta Time*/
+  ctx->last = ctx->now;
+  ctx->now = SDL_GetPerformanceCounter();
+  ctx->dt = (float) ((ctx->now - ctx->last) * 1000 / (float) SDL_GetPerformanceFrequency());
+  
+  /* ... */
+  
   SDL_Color color = colors[color_id];
   bool retval = false;
   
@@ -209,7 +230,6 @@ void segment_display_frame(GameContext *ctx, int x, int y, int value, int digits
     Blit(ctx->renderer, ctx->textures[TEXTURE_7SEGMENT_BG], screen_x, y);
     if (value) {
       digit = value % 10;
-      printf("%d\n", digit);
       Blit(ctx->renderer, ctx->textures[TEXTURE_7SEGMENT_0 + digit], screen_x, y);
       value /= 10;
       }
@@ -241,6 +261,9 @@ void init(GameContext *ctx) {
   
   SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
   
+  ctx->now = SDL_GetPerformanceCounter();
+  ctx->last = SDL_GetPerformanceCounter();
+  
   /* Load textures */
   ctx->textures[TEXTURE_BLOCK]       = IMG_LoadTexture(ctx->renderer, "res/block.png");
   ctx->textures[TEXTURE_BLOCK_EMPTY] = IMG_LoadTexture(ctx->renderer, "res/block_empty.png");
@@ -271,6 +294,8 @@ void init(GameContext *ctx) {
   
   /* start in the main menu */
   ctx->state = GAME_MAIN_MENU;
+  
+  ctx->playing_state = PLAYING;
   }
 
 void get_solved(uint8_t *board, bool *rows, bool *columns) {
@@ -380,7 +405,7 @@ bool shape_is_hovered(Shape shape, int screen_x, int screen_y, int mouse_x, int 
   }
 
 bool can_place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
-  if (block_x < 0 || block_y < 0 || block_x + shape.width > BOARD_SIZE || block_y + shape.height > BOARD_SIZE)
+  if (block_x < 0 || block_y < 0 || block_x + shape.width-1 > BOARD_SIZE || block_y + shape.height-1 > BOARD_SIZE)
     return false;
   
   for (int shape_x=0; shape_x < shape.width; shape_x ++) {
@@ -392,6 +417,18 @@ bool can_place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
       if (board[index]) return false;
       }
     }
+  
+  return true;
+  }
+
+bool can_place_shape_anywhere(uint8_t *board, Shape shape) {
+  for (int block_x = 0; block_x < BOARD_SIZE; block_x ++) {
+    for (int block_y = 0; block_y < BOARD_SIZE; block_y ++) {
+      if (can_place_shape(board, shape, block_x, block_y)) return true;
+      }
+    }
+  
+  return false;
   }
 
 bool place_shape(uint8_t *board, Shape shape, int block_x, int block_y) {
@@ -450,16 +487,31 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       }
     }
   
+  if (ctx->playing_state == GAME_OVER_ANIMATION) {
+    ctx->game_over_anim_timer -= ctx->dt;
+    
+    if (ctx->game_over_anim_timer <= 0) {
+      ctx->game_over_anim_timer = 50;
+      ctx->board[BOARD_SIZE * BOARD_SIZE - ctx->game_over_squares_left] = 1;
+      ctx->game_over_squares_left --;
+      
+      if (ctx->game_over_squares_left <= 0) {
+        ctx->playing_state = PLAYING;
+        clear_board(ctx->board);
+        generate_selection(ctx);
+        ctx->score = 0;
+        }
+      }
+    }
+  
   /* Draw the board */
   {
     /* get the blocks that should be highlighted */
     bool rows[BOARD_SIZE] = {false};
     bool columns[BOARD_SIZE] = {false};
     
-    get_solved(predicted_board, rows, columns);
-    
-    /* todo: get the blocks under the dragged shape */
-    
+    if (ctx->playing_state != GAME_OVER_ANIMATION)
+      get_solved(predicted_board, rows, columns);
     
     int screen_x, screen_y, x, y, index;
     bool highlight;
@@ -534,11 +586,15 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
       }
     }
   
-  /* Regenerate the selection when all the blocks are used */
+  /* Regenerate the selection when all the blocks are used and switch to game over state when there arent any moves left */
   {
     bool do_generate = true;
+    
+    Shape shape;
     for (int i=0; i<SELECTION_SIZE; i ++) {
-      if (ctx->selection[i].color) {
+      shape = ctx->selection[i];
+      
+      if (shape.color) {
         do_generate = false;
         break;
         }
@@ -546,6 +602,20 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
     
     if (do_generate)
       generate_selection(ctx);
+    
+    bool can_place_anything = false;
+    for (int i=0; i<SELECTION_SIZE; i++) {
+      shape = ctx->selection[i];
+      if (!shape.color) continue;
+      if (can_place_shape_anywhere(ctx->board, shape))
+        can_place_anything = true;
+      }
+    
+    if (!can_place_anything && ctx->playing_state != GAME_OVER_ANIMATION) {
+      ctx->playing_state = GAME_OVER_ANIMATION;
+      ctx->game_over_squares_left = BOARD_SIZE * BOARD_SIZE;
+      ctx->game_over_anim_timer = 0;
+      }
     }
   
   bool do_restart = button_frame(ctx,
