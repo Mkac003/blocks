@@ -460,6 +460,7 @@ void frame_playing(GameContext *ctx, int board_position[2], int mouse_position[2
     just_clicked);
   
   if (do_restart) {
+    ctx->playing_state = PLAYING;
     ctx->score = 0;
     generate_selection(ctx);
     clear_board(ctx->board);
